@@ -1,0 +1,30 @@
+{
+  "kind": "collectionType",
+  "collectionName": "plan_features",
+  "info": {
+    "singularName": "plan-feature",
+    "pluralName": "plan-features",
+    "displayName": "Plan_Feature",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "featureName": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 200,
+      "minLength": 1
+    },
+    "featureDetails": {
+      "type": "text",
+      "required": false,
+      "unique": true,
+      "maxLength": 5000,
+      "minLength": 1
+    }
+  }
+}

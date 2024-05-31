@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "subscription_plans",
+  "info": {
+    "singularName": "subscription-plan",
+    "pluralName": "subscription-plans",
+    "displayName": "Subscription_Plan",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "planName": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 200,
+      "minLength": 1
+    },
+    "timeDuration": {
+      "type": "integer",
+      "required": false,
+      "unique": true,
+      "max": 48,
+      "min": 1
+    },
+    "price": {
+      "type": "integer",
+      "required": true,
+      "unique": true,
+      "max": 999999,
+      "min": 0,
+      "default": 0
+    },
+    "plan_features": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::plan-feature.plan-feature"
+    }
+  }
+}
