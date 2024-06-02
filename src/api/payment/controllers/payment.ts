@@ -18,6 +18,7 @@ export default factories.createCoreController(
     },
     async create(ctx) {
       const user = ctx.state.user;
+      const { status, subscriptionPlanId } = ctx.request.body;
       try {
         const userSubscriptionData = await strapi.db
           .query("api::subscription.subscription")
@@ -27,17 +28,41 @@ export default factories.createCoreController(
         if (!userSubscriptionData) {
           return ctx.badRequest("Something went wrong");
         }
+        // Get "Free" Subscription plans details
+        const freeSubscriptionPlanDetails = await strapi.db
+          .query("api::subscription-plan.subscription-plan")
+          .findOne({
+            where: { planName: "Free" },
+          });
+        if (!freeSubscriptionPlanDetails) {
+          return ctx.badRequest('Ask Admin to set a "Free" subscription plan');
+        }
         const result = await strapi.entityService.create(
           "api::payment.payment",
           {
             // @ts-ignore
             data: {
-              ...ctx.request.body,
+              status: status ? status : "",
               subscription: userSubscriptionData.id,
             },
             ...ctx.query,
           }
         );
+        //update subscription plan
+        await strapi.entityService.update(
+          "api::subscription.subscription",
+          userSubscriptionData.id,
+          {
+            data: {
+              subscription_plan: subscriptionPlanId
+                ? subscriptionPlanId
+                : freeSubscriptionPlanDetails.id,
+              users_permissions_user: user.id,
+            },
+            ...ctx.query,
+          }
+        );
+
         return await sanitize.contentAPI.output(
           result,
           strapi.contentType("api::payment.payment"),

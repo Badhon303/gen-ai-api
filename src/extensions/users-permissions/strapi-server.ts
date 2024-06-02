@@ -31,15 +31,24 @@ module.exports = (plugin) => {
     }
 
     // Get All Subscription plans
-    const subscriptionPlanDetails = await strapi.entityService.findMany(
-      "api::subscription-plan.subscription-plan"
-    );
-    if (!subscriptionPlanDetails) {
+    // const subscriptionPlanDetails = await strapi.entityService.findMany(
+    //   "api::subscription-plan.subscription-plan"
+    // );
+    // if (!subscriptionPlanDetails) {
+    //   return ctx.badRequest('Ask Admin to set a "Free" subscription plan');
+    // }
+    // const freePlanDetails = subscriptionPlanDetails.find(
+    //   (item) => item?.planName === "Free"
+    // );
+    // Get "Free" Subscription plans details
+    const freeSubscriptionPlanDetails = await strapi.db
+      .query("api::subscription-plan.subscription-plan")
+      .findOne({
+        where: { planName: "Free" },
+      });
+    if (!freeSubscriptionPlanDetails) {
       return ctx.badRequest('Ask Admin to set a "Free" subscription plan');
     }
-    const freePlanDetails = subscriptionPlanDetails.find(
-      (item) => item?.planName === "Free"
-    );
 
     // Perform the original registration process
     await originalRegister(ctx);
@@ -66,7 +75,7 @@ module.exports = (plugin) => {
     await strapi.entityService.create("api::subscription.subscription", {
       // @ts-ignore
       data: {
-        subscription_plan: freePlanDetails.id,
+        subscription_plan: freeSubscriptionPlanDetails.id,
         users_permissions_user: ctx.body.user.id,
       },
       ...ctx.query,
