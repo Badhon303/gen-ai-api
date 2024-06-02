@@ -16,6 +16,39 @@ export default factories.createCoreController(
       console.log("paymentCallback called");
       return "paymentCallback called";
     },
+    async create(ctx) {
+      const user = ctx.state.user;
+      try {
+        const userSubscriptionData = await strapi.db
+          .query("api::subscription.subscription")
+          .findOne({
+            where: { users_permissions_user: user.id },
+          });
+        if (!userSubscriptionData) {
+          return ctx.badRequest("Something went wrong");
+        }
+        const result = await strapi.entityService.create(
+          "api::payment.payment",
+          {
+            // @ts-ignore
+            data: {
+              ...ctx.request.body,
+              subscription: userSubscriptionData.id,
+            },
+            ...ctx.query,
+          }
+        );
+        return await sanitize.contentAPI.output(
+          result,
+          strapi.contentType("api::payment.payment"),
+          {
+            auth: ctx.state.auth,
+          }
+        );
+      } catch (err) {
+        return ctx.badRequest(`Registration create Error: ${err.message}`);
+      }
+    },
     async find(ctx) {
       const user = ctx.state.user;
       let results: any;

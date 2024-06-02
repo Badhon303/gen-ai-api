@@ -45,28 +45,40 @@ export default factories.createCoreController(
     async update(ctx) {
       try {
         const user = ctx.state.user;
-        const registeredData = await strapi.db
+        const id = ctx.params.id;
+        let result: any;
+        const userSubscriptionData = await strapi.db
           .query("api::subscription.subscription")
           .findOne({
             where: { users_permissions_user: user.id },
           });
-        if (!registeredData) {
-          return ctx.badRequest("Data not found");
+        if (!userSubscriptionData) {
+          return ctx.badRequest("Something went wrong");
         }
-
-        // If The Subscription payment done then update the subscription
-
-        const result = await strapi.entityService.update(
-          "api::subscription.subscription",
-          registeredData.id,
-          {
-            data: {
-              ...ctx.request.body,
-              users_permissions_user: user.id,
-            },
-            ...ctx.query,
-          }
-        );
+        if (user.role.name === "Admin") {
+          result = await strapi.entityService.update(
+            "api::subscription.subscription",
+            id,
+            {
+              data: {
+                ...ctx.request.body,
+              },
+              ...ctx.query,
+            }
+          );
+        } else {
+          result = await strapi.entityService.update(
+            "api::subscription.subscription",
+            userSubscriptionData.id,
+            {
+              data: {
+                ...ctx.request.body,
+                users_permissions_user: user.id,
+              },
+              ...ctx.query,
+            }
+          );
+        }
         return await sanitize.contentAPI.output(
           result,
           strapi.contentType("api::subscription.subscription"),
