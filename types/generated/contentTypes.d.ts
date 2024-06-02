@@ -794,6 +794,7 @@ export interface ApiPaymentPayment extends Schema.CollectionType {
     singularName: 'payment';
     pluralName: 'payments';
     displayName: 'Payment';
+    description: '';
   };
   options: {
     draftAndPublish: false;
@@ -875,6 +876,7 @@ export interface ApiSubscriptionSubscription extends Schema.CollectionType {
     singularName: 'subscription';
     pluralName: 'subscriptions';
     displayName: 'Subscription';
+    description: '';
   };
   options: {
     draftAndPublish: false;
