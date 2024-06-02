@@ -12,16 +12,18 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "status": {
-      "type": "string",
-      "maxLength": 20,
-      "minLength": 1,
-      "required": true
-    },
     "subscription": {
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::subscription.subscription"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "Success",
+        "Pending",
+        "Failed"
+      ]
     }
   }
 }

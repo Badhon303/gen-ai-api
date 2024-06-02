@@ -800,17 +800,12 @@ export interface ApiPaymentPayment extends Schema.CollectionType {
     draftAndPublish: false;
   };
   attributes: {
-    status: Attribute.String &
-      Attribute.Required &
-      Attribute.SetMinMaxLength<{
-        minLength: 1;
-        maxLength: 20;
-      }>;
     subscription: Attribute.Relation<
       'api::payment.payment',
       'oneToOne',
       'api::subscription.subscription'
     >;
+    status: Attribute.Enumeration<['Success', 'Pending', 'Failed']>;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     createdBy: Attribute.Relation<

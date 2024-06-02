@@ -5,75 +5,153 @@
 import { factories } from "@strapi/strapi";
 const { sanitize } = require("@strapi/utils");
 
+//phonePe initialization
+const crypto = require("crypto");
+const axios = require("axios");
+
 export default factories.createCoreController(
   "api::payment.payment",
   ({ strapi }) => ({
     async initiatePayment(ctx) {
-      console.log("initiatePayment called");
-      return "initiatePayment called";
-    },
-    async paymentCallback(ctx) {
-      console.log("paymentCallback called");
-      return "paymentCallback called";
-    },
-    async create(ctx) {
-      const user = ctx.state.user;
-      const { status, subscriptionPlanId } = ctx.request.body;
       try {
-        const userSubscriptionData = await strapi.db
-          .query("api::subscription.subscription")
-          .findOne({
-            where: { users_permissions_user: user.id },
-          });
-        if (!userSubscriptionData) {
-          return ctx.badRequest("Something went wrong");
-        }
-        // Get "Free" Subscription plans details
-        const freeSubscriptionPlanDetails = await strapi.db
-          .query("api::subscription-plan.subscription-plan")
-          .findOne({
-            where: { planName: "Free" },
-          });
-        if (!freeSubscriptionPlanDetails) {
-          return ctx.badRequest('Ask Admin to set a "Free" subscription plan');
-        }
-        const result = await strapi.entityService.create(
-          "api::payment.payment",
-          {
-            // @ts-ignore
-            data: {
-              status: status ? status : "",
-              subscription: userSubscriptionData.id,
-            },
-            ...ctx.query,
-          }
-        );
-        //update subscription plan
-        await strapi.entityService.update(
-          "api::subscription.subscription",
-          userSubscriptionData.id,
-          {
-            data: {
-              subscription_plan: subscriptionPlanId
-                ? subscriptionPlanId
-                : freeSubscriptionPlanDetails.id,
-              users_permissions_user: user.id,
-            },
-            ...ctx.query,
-          }
-        );
+        let merchantTransactionId = ctx.request.body.transactionId;
 
-        return await sanitize.contentAPI.output(
-          result,
-          strapi.contentType("api::payment.payment"),
-          {
-            auth: ctx.state.auth,
-          }
-        );
+        const data = {
+          merchantId: process.env.MERCHANT_ID,
+          merchantTransactionId: merchantTransactionId,
+          name: ctx.request.body.name,
+          amount: ctx.request.body.amount * 100,
+          redirectUrl: `http://localhost:8000/status?id=${merchantTransactionId}`,
+          redirectMode: "POST",
+          mobileNumber: ctx.request.body.phone,
+          paymentInstrument: {
+            type: "PAY_PAGE",
+          },
+        };
+
+        const payload = JSON.stringify(data);
+        const payloadMain = Buffer.from(payload).toString("base64");
+        const keyIndex = 1;
+        const string = payloadMain + "/pg/v1/pay" + process.env.SALT_KEY;
+        const sha256 = crypto.createHash("sha256").update(string).digest("hex");
+        const checksum = sha256 + "###" + keyIndex;
+
+        // const prod_URL = "https://api.phonepe.com/apis/hermes/pg/v1/pay"
+        const prod_URL =
+          "https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay";
+
+        const options = {
+          method: "POST",
+          url: prod_URL,
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            "X-VERIFY": checksum,
+          },
+          data: {
+            request: payloadMain,
+          },
+        };
+
+        await axios(options)
+          .then(async function (response) {
+            // console.log(response.data)
+            // return res.json(response.data)
+            const result = response.data;
+            ctx.send(response.data);
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
       } catch (err) {
-        return ctx.badRequest(`Registration create Error: ${err.message}`);
+        return ctx.badRequest(`Something Went wrong: ${err.message}`);
       }
     },
+
+    async paymentCallback(ctx) {
+      const merchantTransactionId = ctx.params.id;
+      const merchantId = process.env.MERCHANT_ID;
+      const user = ctx.state.user;
+      const { subscriptionPlanId } = ctx.request.body;
+
+      const keyIndex = 1;
+      const string =
+        `/pg/v1/status/${merchantId}/${merchantTransactionId}` +
+        process.env.SALT_KEY;
+      const sha256 = crypto.createHash("sha256").update(string).digest("hex");
+      const checksum = sha256 + "###" + keyIndex;
+
+      const options = {
+        method: "GET",
+        url: `https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/status/${merchantId}/${merchantTransactionId}`,
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+          "X-VERIFY": checksum,
+          "X-MERCHANT-ID": `${merchantId}`,
+        },
+      };
+
+      await axios
+        .request(options)
+        .then(async function (response) {
+          if (response.data.success === true) {
+            try {
+              const userSubscriptionData = await strapi.db
+                .query("api::subscription.subscription")
+                .findOne({
+                  where: { users_permissions_user: user.id },
+                });
+              if (!userSubscriptionData) {
+                return ctx.badRequest("Something went wrong");
+              }
+              // Get "Free" Subscription plans details
+              const freeSubscriptionPlanDetails = await strapi.db
+                .query("api::subscription-plan.subscription-plan")
+                .findOne({
+                  where: { planName: "Free" },
+                });
+              if (!freeSubscriptionPlanDetails) {
+                return ctx.badRequest(
+                  'Ask Admin to set a "Free" subscription plan'
+                );
+              }
+              //Payment Create
+              await strapi.entityService.create("api::payment.payment", {
+                // @ts-ignore
+                data: {
+                  status: "Success",
+                  subscription: userSubscriptionData.id,
+                },
+                ...ctx.query,
+              });
+              //update subscription plan
+              await strapi.entityService.update(
+                "api::subscription.subscription",
+                userSubscriptionData.id,
+                {
+                  data: {
+                    subscription_plan: subscriptionPlanId
+                      ? subscriptionPlanId
+                      : freeSubscriptionPlanDetails.id,
+                    users_permissions_user: user.id,
+                  },
+                  ...ctx.query,
+                }
+              );
+            } catch (err) {
+              return ctx.badRequest(`Payment create Error: ${err.message}`);
+            }
+            ctx.send({ success: true, message: "Payment Success" });
+          } else {
+            ctx.send({ success: false, message: "Payment Failure" });
+          }
+        })
+        .catch(function (error) {
+          console.log(error);
+        });
+    },
+
     async find(ctx) {
       const user = ctx.state.user;
       let results: any;
