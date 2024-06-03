@@ -13,6 +13,7 @@ export default factories.createCoreController(
   "api::payment.payment",
   ({ strapi }) => ({
     async initiatePayment(ctx) {
+      const url = process.env.APP_URL;
       try {
         let merchantTransactionId = ctx.request.body.transactionId;
 
@@ -21,7 +22,7 @@ export default factories.createCoreController(
           merchantTransactionId: merchantTransactionId,
           name: ctx.request.body.name,
           amount: ctx.request.body.amount * 100,
-          redirectUrl: `http://localhost:8000/status?id=${merchantTransactionId}`,
+          redirectUrl: `${url}/payment/${merchantTransactionId}`,
           redirectMode: "POST",
           mobileNumber: ctx.request.body.phone,
           paymentInstrument: {
